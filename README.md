@@ -1,1 +1,1 @@
-# rollup-plugin-sass2
+# Rollup Plugin for Sass
