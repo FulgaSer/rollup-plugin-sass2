@@ -1,12 +1,12 @@
-import {createFilter} from 'rollup-pluginutils';
-import sass from 'node-sass';
-import path from 'path';
-import fs from 'fs';
-import resolve from 'resolve';
+var createFilter=require('rollup-pluginutils').createFilter;
+var sass=require('node-sass');
+var path=require('path');
+var fs=require('fs');
+var resolve=require('resolve');
 
-const CSS_EXT=['.scss','.sass','.css'];
-const CSS_URL=/url\(([^)]*)\)/gi;
-const FILE_EXT=/\.[a-z]{2,4}$/i;
+var CSS_EXT=['.scss','.sass','.css'];
+var CSS_URL=/url\(([^)]*)\)/gi;
+var FILE_EXT=/\.[a-z]{2,4}$/i;
 /**
  * @param {Object} config
  * @param {string} config.data
@@ -23,16 +23,12 @@ const FILE_EXT=/\.[a-z]{2,4}$/i;
  * @param {string|boolean} config.sourceMap
  * @param {boolean} config.sourceComments
  */
-export default function(config = {}) {
+module.exports = function(config = {}) {
     let filter = createFilter( ['**/*.css', '**/*.scss', '**/*.sass'],config.exclude);
     let styles=[];
 
     return {
         name: 'sass',
-        outputOptions(options){
-            options.file='';
-            return options
-        },
         load(id) {
             if (!filter(id)) return;
 
