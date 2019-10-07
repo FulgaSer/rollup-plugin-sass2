@@ -63,7 +63,7 @@ export default function sassPlugin(options:SassOptions = {}) {
 
                     return {
                         file:file,
-                        contents:rebase_assets(path.dirname(file),base,contents)
+                        contents:rebase_assets(file,base,contents)
                     }
                 },options.importer)
             }));
