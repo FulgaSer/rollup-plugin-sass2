@@ -1,6 +1,7 @@
 {
   "name": "rollup-plugin-sass2",
-  "version": "2.0.0",
+  "version": "3.0.0",
+  "types": "index.d.ts",
   "main": "index.cjs.js",
   "module": "index.es.js",
   "author": "Sergiu Fulga <fulga_ser@hotmail.com>",
@@ -9,19 +10,16 @@
   "bugs": {
     "url": "https://github.com/FulgaSer/rollup-plugin-sass2/issues"
   },
-  "keywords": [
-    "rollup-plugin",
-    "css",
-    "sass",
-    "scss"
-  ],
+  "keywords": ["rollup-plugin","css","sass","scss"],
   "dependencies": {
     "node-sass": "^4.12.0",
     "resolve": "^1.12.0",
     "rollup-pluginutils": "^2.8.2"
   },
   "devDependencies": {
-    "rollup": "^1.22.0"
+    "rollup": "^1.22.0",
+    "rollup-plugin-typescript2": "^0.24.3",
+    "typescript": "^3.6.3"
   },
   "scripts": {
     "dev": "rollup -c",
