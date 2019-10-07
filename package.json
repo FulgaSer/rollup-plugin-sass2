@@ -1,6 +1,6 @@
 {
   "name": "rollup-plugin-sass2",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "types": "index.d.ts",
   "main": "index.cjs.js",
   "module": "index.es.js",
