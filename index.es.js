@@ -42,7 +42,7 @@ function sassPlugin(options) {
                     var contents = readFileSync(file, 'utf8');
                     return {
                         file: file,
-                        contents: rebase_assets(dirname(file), base, contents)
+                        contents: rebase_assets(file, base, contents)
                     };
                 }, options.importer)
             }));

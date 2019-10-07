@@ -44,7 +44,7 @@ function sassPlugin(options) {
                     var contents = fs.readFileSync(file, 'utf8');
                     return {
                         file: file,
-                        contents: rebase_assets(path.dirname(file), base, contents)
+                        contents: rebase_assets(file, base, contents)
                     };
                 }, options.importer)
             }));
