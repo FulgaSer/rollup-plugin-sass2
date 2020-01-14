@@ -72,6 +72,22 @@ export default function sassPlugin(options:SassOptions = {}) {
             }
         },
         generateBundle(output,bundle){
+            if(options.outDir || output.dir) {
+                let dir = path.resolve(options.outDir || output.dir);
+
+                mkdir(dir);
+                forEach(styles,function (style,file) {
+                    let dest = path.resolve(dir, path.basename(file));
+
+                    fs.writeFile(dest, rebaseAssets(style, path.dirname(file), dir), function (err) {
+                        if (err) console.log(red(err.code));
+                        else console.log(green('created ' + path.relative(__dirname, dest)));
+                    });
+                });
+
+                return
+            }
+
             if(options.outFile || output.file){
                 let file=options.outFile || output.file;
                 let dir=path.dirname(file);
@@ -94,19 +110,7 @@ export default function sassPlugin(options:SassOptions = {}) {
                     });
                 }
             }
-            if(options.outDir || output.dir) {
-                let dir = path.resolve(options.outDir || output.dir);
 
-                mkdir(dir);
-                forEach(styles,function (style,file) {
-                    let dest = path.resolve(dir, path.basename(file));
-
-                    fs.writeFile(dest, rebaseAssets(style, path.dirname(file), dir), function (err) {
-                        if (err) console.log(red(err.code));
-                        else console.log(green('created ' + path.relative(__dirname, dest)));
-                    });
-                });
-            }
         }
     }
 }
