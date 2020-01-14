@@ -1,4 +1,3 @@
-import { createFilter } from 'rollup-pluginutils';
 import { dirname, resolve, isAbsolute, relative, basename } from 'path';
 import { readFileSync, writeFile, existsSync, mkdirSync } from 'fs';
 import { renderSync } from 'node-sass';
@@ -26,87 +25,96 @@ var FILE_EXT = /\.[a-z]{2,4}$/i;
  */
 function sassPlugin(options) {
     if (options === void 0) { options = {}; }
-    var filter = createFilter(['**/*.css', '**/*.scss', '**/*.sass'], options.exclude);
     var styles = {};
     return {
         name: 'sass',
         load: function (id) {
-            if (!filter(id))
-                return;
-            var base = dirname(id);
+            if (!support(id))
+                return null;
+            var self = this;
             var result = renderSync(Object.assign({}, options, {
                 file: id,
-                importer: array_merge(function (url, prev) {
-                    var dir = prev === 'stdin' ? base : dirname(prev);
-                    var file = sync(resolve(dir, url), { extensions: CSS_EXT });
-                    var contents = readFileSync(file, 'utf8');
-                    return {
-                        file: file,
-                        contents: rebase_assets(file, base, contents)
-                    };
-                }, options.importer)
+                importer: [function (url, importer) {
+                        var dir = dirname(importer);
+                        var file = sync(resolve(dir, url), { extensions: CSS_EXT });
+                        var contents = readFileSync(file, 'utf8');
+                        self.addWatchFile(file);
+                        return { file: file, contents: rebaseAssets(contents, dirname(file), dir) };
+                    }].concat(options.importer).filter(function (item) { return item; })
             }));
-            styles[id] = result.css.toString();
-            result.stats.includedFiles.map(this.addWatchFile, this);
-            return '';
+            return result.css.toString();
         },
-        generateBundle: function (output) {
-            if (options.outDir || output.dir) {
-                var base_1 = resolve(options.outDir || output.dir);
-                mkdir(base_1);
-                Object.keys(styles).forEach(function (style) {
-                    var file = basename(style).replace(FILE_EXT, '.css');
-                    var dest = resolve(base_1, file);
-                    writeFile(dest, rebase_assets(style, base_1, styles[style]), function (err) {
-                        if (err)
-                            console.error(red(err.code));
-                        else
-                            console.log(green('created ' + relative(__dirname, dest)));
-                    });
-                });
-                return;
+        transform: function (code, id) {
+            if (support(id)) {
+                styles[id] = code;
+                return "export default " + JSON.stringify(code);
             }
+        },
+        generateBundle: function (output, bundle) {
             if (options.outFile || output.file) {
-                var dest_1 = options.outFile || output.file;
-                var base_2 = dirname(dest_1);
+                var file = options.outFile || output.file;
+                var dir_1 = dirname(file);
                 var css_1 = '';
-                mkdir(base_2);
-                Object.keys(styles).forEach(function (style) {
-                    css_1 += rebase_assets(style, base_2, styles[style]);
+                forEach(styles, function (style, file) {
+                    css_1 += rebaseAssets(style, dirname(file), dir_1);
                 });
-                if (!filter(dest_1))
-                    dest_1 = dest_1.replace(FILE_EXT, '.css');
-                setTimeout(function () {
+                if (support(output.file)) {
+                    var name_1 = basename(output.file);
+                    bundle[name_1].code = css_1;
+                }
+                else {
+                    var dest_1 = file.replace(FILE_EXT, '.css');
+                    mkdir(dir_1);
                     writeFile(dest_1, css_1, function (err) {
                         if (err)
-                            console.error(red(err.code));
+                            console.log(red(err.code));
                         else
                             console.log(green('created ' + relative(__dirname, dest_1)));
+                    });
+                }
+            }
+            if (options.outDir || output.dir) {
+                var dir_2 = resolve(options.outDir || output.dir);
+                mkdir(dir_2);
+                forEach(styles, function (style, file) {
+                    var dest = resolve(dir_2, basename(file));
+                    writeFile(dest, rebaseAssets(style, dirname(file), dir_2), function (err) {
+                        if (err)
+                            console.log(red(err.code));
+                        else
+                            console.log(green('created ' + relative(__dirname, dest)));
                     });
                 });
             }
         }
     };
 }
-function rebase_assets(file, base, content) {
+function support(url) {
+    for (var i = 0; i < CSS_EXT.length; i++) {
+        if (url.match(new RegExp(CSS_EXT[i] + '$')))
+            return true;
+    }
+    return false;
+}
+function rebaseAssets(content, base, newbase) {
     return content.replace(CSS_URL, function (e, match) {
         var asset = match.replace(/["']/g, '').trim();
         if (!isAbsolute(asset)) {
-            var assetFile = resolve(dirname(file), asset);
-            var assetRelative = relative(base, assetFile);
-            asset = assetRelative.replace(/\\/g, "/");
+            var file = resolve(base, asset);
+            var relative$1 = relative(newbase, file);
+            asset = relative$1.replace(/\\/g, "/");
         }
         return "url('" + asset + "')";
     });
 }
-function array_merge() {
-    var arr, i;
-    for (i = 0, arr = []; i < arguments.length; i++) {
-        if (arguments[i] !== void (0)) {
-            arr.push(arguments[i]);
+function forEach(obj, iteraction, context) {
+    if (obj) {
+        for (var key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                iteraction.call(context, obj[key], key);
+            }
         }
     }
-    return arr;
 }
 function red(text) {
     return '\x1b[1m\x1b[31m' + text + '\x1b[0m';
@@ -123,7 +131,6 @@ function mkdir(dir) {
     catch (err) {
         if (err.code === 'ENOENT') {
             mkdir(dirname(dir));
-            mkdir(dir);
         }
     }
 }

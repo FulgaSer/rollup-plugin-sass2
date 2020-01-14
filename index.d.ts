@@ -1,5 +1,8 @@
 interface SassImporter {
-    (url: string, prev: string, done: Function): any;
+    (url: string, prev?: string, done?: Function): {
+        file: string;
+        contents: string;
+    };
 }
 interface SassOptions {
     data?: string;
@@ -36,7 +39,8 @@ interface SassOptions {
  */
 export default function sassPlugin(options?: SassOptions): {
     name: string;
-    load(id: any): string;
-    generateBundle(output: any): void;
+    load(id: any): any;
+    transform(code: any, id: any): string;
+    generateBundle(output: any, bundle: any): void;
 };
 export {};

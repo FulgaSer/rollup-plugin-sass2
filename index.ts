@@ -1,4 +1,3 @@
-import {createFilter} from 'rollup-pluginutils';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as sass from 'node-sass';
@@ -9,7 +8,7 @@ const CSS_URL=/url\(([^)]*)\)/gi;
 const FILE_EXT=/\.[a-z]{2,4}$/i;
 
 interface SassImporter{
-    (url:string,prev:string,done:Function);
+    (url:string,prev?:string,done?:Function):{file:string,contents:string};
 }
 
 interface SassOptions {
@@ -45,64 +44,66 @@ interface SassOptions {
  * @param {boolean} options.sourceComments
  */
 export default function sassPlugin(options:SassOptions = {}) {
-    let filter = createFilter( ['**/*.css', '**/*.scss', '**/*.sass'],options.exclude);
     let styles={};
 
     return {
         name: 'sass',
         load(id) {
-            if (!filter(id)) return;
+            if(!support(id)) return null;
 
-            let base=path.dirname(id);
+            let self=this;
             let result = sass.renderSync(Object.assign({},options,{
                 file:id,
-                importer:array_merge(function (url,prev) {
-                    let dir=prev==='stdin'?base:path.dirname(prev);
-                    let file=resolve.sync(path.resolve(dir,url),{extensions:CSS_EXT});
-                    let contents=fs.readFileSync(file,'utf8');
+                importer:[function (url,importer) {
+                    let dir = path.dirname(importer);
+                    let file = resolve.sync(path.resolve(dir, url), { extensions: CSS_EXT });
+                    let contents = fs.readFileSync(file, 'utf8');
 
-                    return {
-                        file:file,
-                        contents:rebase_assets(file,base,contents)
-                    }
-                },options.importer)
+                    self.addWatchFile(file);
+                    return {file:file, contents:rebaseAssets(contents,path.dirname(file),dir)};
+                }].concat(options.importer).filter((item)=>item)
             }));
-            styles[id]=result.css.toString();
-            result.stats.includedFiles.map(this.addWatchFile,this);
-            return ''
+            return result.css.toString();
         },
-        generateBundle(output){
-            if(options.outDir || output.dir){
-                let base=path.resolve(options.outDir || output.dir);
-
-                mkdir(base);
-
-                Object.keys(styles).forEach(function (style) {
-                    let file=path.basename(style).replace(FILE_EXT,'.css');
-                    let dest=path.resolve(base,file);
-
-                    fs.writeFile(dest,rebase_assets(style,base,styles[style]),function (err) {
-                        if (err) console.error(red(err.code));
-                        else console.log(green('created '+path.relative(__dirname,dest)));
-                    });
-                });
-                return
+        transform(code,id){
+            if(support(id)){
+                styles[id]=code;
+                return `export default ${JSON.stringify(code)}`
             }
+        },
+        generateBundle(output,bundle){
             if(options.outFile || output.file){
-                let dest=options.outFile || output.file;
-                let base=path.dirname(dest);
+                let file=options.outFile || output.file;
+                let dir=path.dirname(file);
                 let css='';
 
-                mkdir(base);
-                Object.keys(styles).forEach(function (style) {
-                    css+=rebase_assets(style, base, styles[style])
+                forEach(styles,function (style,file) {
+                    css += rebaseAssets(style, path.dirname(file), dir);
                 });
+                if(support(output.file)){
+                    let name=path.basename(output.file);
+                    bundle[name].code=css;
+                }
+                else {
+                    let dest=file.replace(FILE_EXT, '.css');
 
-                if(!filter(dest)) dest=dest.replace(FILE_EXT,'.css');
-                setTimeout(function () {
-                    fs.writeFile(dest,css,function (err) {
-                        if (err)  console.error(red(err.code));
-                        else console.log(green('created '+path.relative(__dirname,dest)));
+                    mkdir(dir);
+                    fs.writeFile(dest, css, function (err) {
+                        if (err) console.log(red(err.code));
+                        else console.log(green('created ' + path.relative(__dirname, dest)));
+                    });
+                }
+            }
+            if(options.outDir || output.dir) {
+                let dir = path.resolve(options.outDir || output.dir);
+
+                mkdir(dir);
+                forEach(styles,function (style,file) {
+                    let dest = path.resolve(dir, path.basename(file));
+
+                    fs.writeFile(dest, rebaseAssets(style, path.dirname(file), dir), function (err) {
+                        if (err) console.log(red(err.code));
+                        else console.log(green('created ' + path.relative(__dirname, dest)));
                     });
                 });
             }
@@ -110,31 +111,35 @@ export default function sassPlugin(options:SassOptions = {}) {
     }
 }
 
-function rebase_assets(file:string,base:string,content:string) {
-    return content.replace(CSS_URL,function (e,match) {
-        let asset=match.replace(/["']/g,'').trim();
-
-        if(!path.isAbsolute(asset)){
-            let assetFile=path.resolve(path.dirname(file),asset);
-            let assetRelative=path.relative(base,assetFile);
-
-            asset=assetRelative.replace(/\\/g,"/");
-        }
-        return "url('"+asset+"')";
-    })
+function support(url){
+    for(let i=0;i < CSS_EXT.length;i++){
+        if(url.match(new RegExp(CSS_EXT[i]+'$'))) return true;
+    }
+    return false;
 }
 
-function array_merge(...args:any[]);
+function rebaseAssets(content:string,base:string,newbase:string):string{
+    return content.replace(CSS_URL, function (e, match) {
+        let asset = match.replace(/["']/g, '').trim();
 
-function array_merge() {
-    let arr,i;
+        if (!path.isAbsolute(asset)) {
+            let file = path.resolve(base, asset);
+            let relative = path.relative(newbase, file);
 
-    for(i=0,arr=[];i < arguments.length;i++){
-        if(arguments[i]!==void(0)){
-            arr.push(arguments[i]);
+            asset = relative.replace(/\\/g, "/");
+        }
+        return "url('" + asset + "')";
+    });
+}
+
+function forEach<T>(obj:T,iteraction:Function,context?:any) {
+    if(obj){
+        for(let key in obj){
+            if(obj.hasOwnProperty(key)){
+                iteraction.call(context,obj[key],key);
+            }
         }
     }
-    return arr;
 }
 
 function red (text:string) {
@@ -147,13 +152,13 @@ function green(text:string) {
 
 function mkdir(dir:string) {
     if (fs.existsSync(dir))  return;
+
     try {
         fs.mkdirSync(dir)
     }
     catch (err) {
         if (err.code === 'ENOENT') {
             mkdir(path.dirname(dir));
-            mkdir(dir)
         }
     }
 }
