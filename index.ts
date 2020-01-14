@@ -84,7 +84,6 @@ export default function sassPlugin(options:SassOptions = {}) {
                         else console.log(green('created ' + path.relative(__dirname, dest)));
                     });
                 });
-
                 return
             }
 

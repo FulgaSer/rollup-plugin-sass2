@@ -51,12 +51,26 @@ function sassPlugin(options) {
             }
         },
         generateBundle: function (output, bundle) {
+            if (options.outDir || output.dir) {
+                var dir_1 = resolve(options.outDir || output.dir);
+                mkdir(dir_1);
+                forEach(styles, function (style, file) {
+                    var dest = resolve(dir_1, basename(file));
+                    writeFile(dest, rebaseAssets(style, dirname(file), dir_1), function (err) {
+                        if (err)
+                            console.log(red(err.code));
+                        else
+                            console.log(green('created ' + relative(__dirname, dest)));
+                    });
+                });
+                return;
+            }
             if (options.outFile || output.file) {
                 var file = options.outFile || output.file;
-                var dir_1 = dirname(file);
+                var dir_2 = dirname(file);
                 var css_1 = '';
                 forEach(styles, function (style, file) {
-                    css_1 += rebaseAssets(style, dirname(file), dir_1);
+                    css_1 += rebaseAssets(style, dirname(file), dir_2);
                 });
                 if (support(output.file)) {
                     var name_1 = basename(output.file);
@@ -64,7 +78,7 @@ function sassPlugin(options) {
                 }
                 else {
                     var dest_1 = file.replace(FILE_EXT, '.css');
-                    mkdir(dir_1);
+                    mkdir(dir_2);
                     writeFile(dest_1, css_1, function (err) {
                         if (err)
                             console.log(red(err.code));
@@ -72,19 +86,6 @@ function sassPlugin(options) {
                             console.log(green('created ' + relative(__dirname, dest_1)));
                     });
                 }
-            }
-            if (options.outDir || output.dir) {
-                var dir_2 = resolve(options.outDir || output.dir);
-                mkdir(dir_2);
-                forEach(styles, function (style, file) {
-                    var dest = resolve(dir_2, basename(file));
-                    writeFile(dest, rebaseAssets(style, dirname(file), dir_2), function (err) {
-                        if (err)
-                            console.log(red(err.code));
-                        else
-                            console.log(green('created ' + relative(__dirname, dest)));
-                    });
-                });
             }
         }
     };
